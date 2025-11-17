@@ -22,22 +22,25 @@ jobs:
           java-version: '17' 
           cache: 'gradle'
 
-      # 2. 【最终修复】使用更标准的社区方法来安装 Android SDK
+     # 2. 【最终修复】使用最可靠的解压和目录设置方式
       - name: Setup Android SDK Environment
         run: |
-          # 1. 自动设置环境变量和创建目录
+          # 1. 设置 Android SDK 路径
           echo "ANDROID_SDK_ROOT=$HOME/android/sdk" >> $GITHUB_ENV
           mkdir -p $ANDROID_SDK_ROOT
           
-          # 2. 下载并解压命令行工具到正确的位置
+          # 2. 下载并解压命令行工具到临时目录
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-8514281_latest.zip -O $HOME/cmdline-tools.zip
-          unzip -q $HOME/cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          unzip -q $HOME/cmdline-tools.zip -d $HOME/cmdline-tools-temp
           
-          # 3. 修正目录结构，将解压后的内容移到 'latest' 文件夹下
-          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+          # 3. 创建最终目录，并将工具移动到 'latest' 子目录下
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
           
-          # 4. 更新 PATH 环境变量，使 sdkmanager 可用
+          # 这里的 mv 操作是关键，它将 temp 目录中的内容移动到正确位置
+          mv $HOME/cmdline-tools-temp/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          
+          # 4. 更新 PATH 环境变量
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
           
-          # 5. 接受 SDK 许可 (确保安装不会卡住)
+          # 5. 接受 SDK 许可
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
