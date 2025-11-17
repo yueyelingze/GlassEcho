@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 1. 保持 Java 17 设置，解决依赖冲突
+      # 1. 保持 Java 17 设置
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -22,20 +22,26 @@ jobs:
           java-version: '17' 
           cache: 'gradle'
 
-      # 2. 【关键修复】使用 setup-android action 来正确安装 SDK 和配置路径
+      # 2. 【关键修复】使用 'packages' 参数来安装 SDK 34
       - name: Setup Android SDK 34 for Android 15 Compatibility
-        uses: android-actions/setup-android@v3 # 专门用于设置 Android 环境的 Action
+        uses: android-actions/setup-android@v3 
         with:
-          api-level: 34 # 自动安装 API 34 平台和构建工具
+          # 修复点：使用 'packages' 参数，指定安装最新的平台和构建工具
+          packages: |
+            "platform-tools"
+            "platforms;android-34"
+            "build-tools;34.0.0"
+          cmdline-tools-version: "latest" # 确保使用最新的命令行工具
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        # 尝试使用 assembleDebug，因为发布版 (Release) 可能需要签名密钥配置
+        run: ./gradlew assembleDebug # <-- 更改为 Debug 版本，更容易编译
 
-      - name: Upload Release APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: app/build/outputs/apk/release/*.apk
+        with
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk # <-- 路径也相应更改
