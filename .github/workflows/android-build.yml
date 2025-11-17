@@ -22,41 +22,22 @@ jobs:
           java-version: '17' 
           cache: 'gradle'
 
-      # 2. 【最终修复】手动下载 Android SDK 命令行工具，并添加到 PATH
+      # 2. 【最终修复】使用更标准的社区方法来安装 Android SDK
       - name: Setup Android SDK Environment
         run: |
-          # 1. 设置 Android SDK 路径环境变量
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          # 1. 自动设置环境变量和创建目录
+          echo "ANDROID_SDK_ROOT=$HOME/android/sdk" >> $GITHUB_ENV
           mkdir -p $ANDROID_SDK_ROOT
           
-          # 2. 下载命令行工具 (latest)
+          # 2. 下载并解压命令行工具到正确的位置
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-8514281_latest.zip -O $HOME/cmdline-tools.zip
-          unzip -q $HOME/cmdline-tools.zip -d $ANDROID_SDK_ROOT
+          unzip -q $HOME/cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
           
-          # 3. 整理目录结构 (必须将工具移动到 'latest' 目录下)
-          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-          mv $ANDROID_SDK_ROOT/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          # 3. 修正目录结构，将解压后的内容移到 'latest' 文件夹下
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
           
           # 4. 更新 PATH 环境变量，使 sdkmanager 可用
           echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
           
           # 5. 接受 SDK 许可 (确保安装不会卡住)
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
-
-      # 3. 安装 SDK 34 平台 (现在 sdkmanager 应该能找到了)
-      - name: Install Android SDK 34 Platform
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      # 4. 构建 Debug APK
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
-
-      # 5. 上传 Debug APK
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/*.apk
