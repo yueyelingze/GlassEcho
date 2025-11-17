@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1. 保持 Java 17 设置
+      # 1. 设置 Java 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -22,26 +22,41 @@ jobs:
           java-version: '17' 
           cache: 'gradle'
 
-      # 2. 【关键修复】使用 'packages' 参数来安装 SDK 34
-      - name: Setup Android SDK 34 for Android 15 Compatibility
-        uses: android-actions/setup-android@v3 
-        with:
-          # 修复点：使用 'packages' 参数，指定安装最新的平台和构建工具
-          packages: |
-            "platform-tools"
-            "platforms;android-34"
-            "build-tools;34.0.0"
-          cmdline-tools-version: "latest" # 确保使用最新的命令行工具
+      # 2. 【最终修复】手动下载 Android SDK 命令行工具，并添加到 PATH
+      - name: Setup Android SDK Environment
+        run: |
+          # 1. 设置 Android SDK 路径环境变量
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          mkdir -p $ANDROID_SDK_ROOT
+          
+          # 2. 下载命令行工具 (latest)
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8514281_latest.zip -O $HOME/cmdline-tools.zip
+          unzip -q $HOME/cmdline-tools.zip -d $ANDROID_SDK_ROOT
+          
+          # 3. 整理目录结构 (必须将工具移动到 'latest' 目录下)
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv $ANDROID_SDK_ROOT/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          
+          # 4. 更新 PATH 环境变量，使 sdkmanager 可用
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          
+          # 5. 接受 SDK 许可 (确保安装不会卡住)
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
+
+      # 3. 安装 SDK 34 平台 (现在 sdkmanager 应该能找到了)
+      - name: Install Android SDK 34 Platform
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build Release APK
-        # 尝试使用 assembleDebug，因为发布版 (Release) 可能需要签名密钥配置
-        run: ./gradlew assembleDebug # <-- 更改为 Debug 版本，更容易编译
+      # 4. 构建 Debug APK
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
+      # 5. 上传 Debug APK
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/*.apk # <-- 路径也相应更改
+          path: app/build/outputs/apk/debug/*.apk
