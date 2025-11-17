@@ -1,50 +1,33 @@
-name: Build GlassEcho APK (assembleDebug)
+name: Android Build
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 1.8
-      uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 8
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
 
-    - name: Install Android SDK command line tools
-      run: |
-        mkdir -p $ANDROID_SDK_ROOT
-        cd $ANDROID_SDK_ROOT
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-        unzip cmdline.zip
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/ || true
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-19" "build-tools;28.0.3"
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-    - name: Accept licenses
-      run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-    - name: Build debug APK (Gradle)
-      run: |
-        chmod +x ./gradlew
-        ./gradlew clean assembleDebug --no-daemon
-      env:
-        ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-
-    - name: Collect APKs
-      uses: actions/upload-artifact@v4
-      with:
-        name: glassecho-apks
-        path: |
-          **/build/outputs/apk/**/*.apk
-          **/outputs/apk/**/*.apk
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/*.apk
